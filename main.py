@@ -57,7 +57,7 @@ class HomeworkResponse(BaseModel):
     model_used: str
 
 # --- API Keys (Environment Variables) ---
-# IMPORTANT: These are now loaded from environment variables.
+# IMPORTANT: These are loaded from environment variables.
 # You will need to set these on Railway.com and in your local .env file.
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") # Loaded from environment variable
 LLAMA_API_KEY = os.getenv("LLAMA_API_KEY") # Loaded from environment variable
