@@ -1,7 +1,7 @@
 # main.py
 from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict # Import ConfigDict
 from typing import Literal
 import os
 import httpx # For making asynchronous HTTP requests
@@ -52,6 +52,9 @@ class HomeworkRequest(BaseModel):
     api_choice: Literal["gemini", "llama"] # Ensures only 'gemini' or 'llama' are accepted
 
 class HomeworkResponse(BaseModel):
+    # Resolve Pydantic UserWarning: Field "model_used" has conflict with protected namespace "model_".
+    model_config = ConfigDict(protected_namespaces=()) # Add this line
+
     output: str
     model_used: str
 
@@ -164,19 +167,3 @@ async def process_homework(request: HomeworkRequest):
             raise HTTPException(status_code=500, detail=f"An error occurred with Llama API (simulated): {e}")
 
     return {"output": ai_output, "model_used": model_used}
-
-# To run this locally:
-# 1. Save this as main.py
-# 2. Create a requirements.txt file with:
-#    fastapi==0.111.0
-#    uvicorn==0.30.1
-#    pydantic==2.7.4
-#    python-dotenv==1.0.1 (optional, for local .env file)
-#    httpx==0.27.0
-# 3. Install dependencies: pip install -r requirements.txt
-# 4. Set environment variables (e.g., in a .env file if using python-dotenv, or directly in your terminal):
-#    export APP_USERNAME="user"
-#    export APP_PASSWORD="password123"
-#    export GEMINI_API_KEY="YOUR_GEMINI_API_KEY_HERE"
-#    export LLAMA_API_KEY="YOUR_LLAMA_API_KEY_HERE"
-# 5. Run: uvicorn main:app --reload --host 0.0.0.0 --port 8000
