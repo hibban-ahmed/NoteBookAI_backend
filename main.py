@@ -1,7 +1,7 @@
 # main.py
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, ConfigDict # Import ConfigDict
+from pydantic import BaseModel, ConfigDict
 from typing import Literal
 import os
 import httpx # For making asynchronous HTTP requests
@@ -15,12 +15,10 @@ app = FastAPI(
 
 # --- CORS Configuration ---
 # This is crucial for allowing your Vercel frontend to communicate with this backend.
-# Replace 'https://your-vercel-frontend-url.vercel.app' with your actual Vercel deployment URL.
-# During development, you might use ["http://localhost:3000"]
+# I have updated the 'origins' list with your Vercel frontend URL: https://note-book-ai-v2.vercel.app/
 origins = [
     "http://localhost:3000",  # For local Next.js development
-    "https://your-vercel-frontend-url.vercel.app", # REPLACE WITH YOUR ACTUAL VERCEl URL
-    "https://ai-homework-helper-frontend-example.vercel.app" # Example placeholder
+    "https://note-book-ai-v2.vercel.app", # Your actual Vercel frontend URL
 ]
 
 app.add_middleware(
@@ -32,9 +30,9 @@ app.add_middleware(
 )
 
 # --- Hardcoded User for Login ---
-# In a real application, you would use a database and proper password hashing (e.g., bcrypt).
+# These values will be loaded from environment variables on Railway.
 HARDCODED_USERNAME = os.getenv("APP_USERNAME", "user")
-HARDCODED_PASSWORD = os.getenv("APP_PASSWORD", "password123") # Store securely in env vars!
+HARDCODED_PASSWORD = os.getenv("APP_PASSWORD", "password123")
 
 # --- Pydantic Models for Request/Response Bodies ---
 
@@ -53,25 +51,16 @@ class HomeworkRequest(BaseModel):
 
 class HomeworkResponse(BaseModel):
     # Resolve Pydantic UserWarning: Field "model_used" has conflict with protected namespace "model_".
-    model_config = ConfigDict(protected_namespaces=()) # Add this line
+    model_config = ConfigDict(protected_namespaces=())
 
     output: str
     model_used: str
 
 # --- API Keys (Environment Variables) ---
-# IMPORTANT: Never hardcode API keys directly in your code.
-# Use environment variables for production deployments (e.g., on Railway.com).
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-LLAMA_API_KEY = os.getenv("LLAMA_API_KEY") # Placeholder for Llama API key
-
-# --- Dependency for Authentication (Simple placeholder) ---
-# For this hardcoded single user, we'll just check if a valid login has occurred.
-# In a real app, this would involve JWT tokens or session management.
-def verify_auth(username: str = Depends(lambda x: x)): # This is a simplified placeholder
-    # In a real scenario, you'd check for a valid session token or JWT
-    # For this simple hardcoded user, we'll assume successful login grants access.
-    # The actual login check happens in the /login endpoint.
-    pass
+# IMPORTANT: These are now loaded from environment variables.
+# You will need to set these on Railway.com and in your local .env file.
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") # Loaded from environment variable
+LLAMA_API_KEY = os.getenv("LLAMA_API_KEY") # Loaded from environment variable
 
 # --- Routes ---
 
@@ -86,7 +75,6 @@ async def login(request: LoginRequest):
     Handles user login with hardcoded credentials.
     """
     if request.username == HARDCODED_USERNAME and request.password == HARDCODED_PASSWORD:
-        # In a real app, you'd generate and return a JWT token here
         return {"message": "Login successful!", "status": "success"}
     else:
         raise HTTPException(
@@ -105,12 +93,10 @@ async def process_homework(request: HomeworkRequest):
 
     if request.api_choice == "gemini":
         if not GEMINI_API_KEY:
-            raise HTTPException(status_code=500, detail="Gemini API Key not configured.")
+            raise HTTPException(status_code=500, detail="Gemini API Key not configured on the server.")
         try:
-            # Construct the prompt for Gemini
             full_prompt = f"Study Content: {request.study_content}\n\nUser Prompt: {request.prompt}"
             
-            # Gemini API Endpoint (using gemini-2.0-flash as specified)
             gemini_api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
             
             payload = {
@@ -125,18 +111,18 @@ async def process_homework(request: HomeworkRequest):
             }
 
             async with httpx.AsyncClient() as client:
-                response = await client.post(gemini_api_url, json=payload, timeout=60.0) # Added timeout
-                response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+                response = await client.post(gemini_api_url, json=payload, timeout=60.0)
+                response.raise_for_status()
                 result = response.json()
 
             if result and result.get("candidates") and result["candidates"][0].get("content") and result["candidates"][0]["content"].get("parts"):
                 ai_output = result["candidates"][0]["content"]["parts"][0]["text"]
             else:
                 ai_output = "Error: Could not get a valid response from Gemini AI."
-                print(f"Gemini API raw response: {result}") # Log raw response for debugging
+                print(f"Gemini API raw response: {result}")
 
         except httpx.RequestError as e:
-            raise HTTPException(status_code=503, detail=f"Gemini API request failed: {e}")
+            raise HTTPException(status_code=503, detail=f"Gemini API request failed: {e}. Check network or API key.")
         except httpx.HTTPStatusError as e:
             raise HTTPException(status_code=e.response.status_code, detail=f"Gemini API returned an error: {e.response.text}")
         except Exception as e:
@@ -144,26 +130,45 @@ async def process_homework(request: HomeworkRequest):
 
     elif request.api_choice == "llama":
         if not LLAMA_API_KEY:
-            raise HTTPException(status_code=500, detail="Llama API Key not configured.")
+            raise HTTPException(status_code=500, detail="Llama API Key not configured on the server.")
         try:
-            # Placeholder for Llama API call logic
-            # You would replace this with actual Llama API integration (e.g., using a library or direct HTTP calls)
-            # Example:
-            # llama_api_url = "YOUR_LLAMA_API_ENDPOINT"
-            # llama_payload = {
-            #     "model": "llama-2-7b-chat", # Example Llama model
-            #     "prompt": f"Based on '{request.study_content}', {request.prompt}",
-            #     "max_tokens": 500
-            # }
-            # async with httpx.AsyncClient() as client:
-            #     llama_response = await client.post(llama_api_url, json=llama_payload, headers={"Authorization": f"Bearer {LLAMA_API_KEY}"})
-            #     llama_response.raise_for_status()
-            #     llama_result = llama_response.json()
-            #     ai_output = llama_result.get("choices")[0].get("text") # Adjust based on actual Llama API response structure
+            # --- ACTUAL GROQ CLOUD (LLAMA) API INTEGRATION ---
+            groq_api_url = "https://api.groq.com/openai/v1/chat/completions"
+            
+            # Combine study content and prompt for the Llama model
+            full_llama_prompt = f"Study Content: {request.study_content}\n\nUser Prompt: {request.prompt}"
 
-            ai_output = f"This is a simulated response from Llama AI for: '{request.prompt}' based on your content. (Llama API integration pending)"
+            llama_payload = {
+                "model": "llama3-8b-8192", # Using a common Llama-3 model from Groq
+                "messages": [{"role": "user", "content": full_llama_prompt}],
+                "max_tokens": 1024, # You can adjust this as needed
+                "temperature": 0.7, # You can adjust this as needed
+            }
+            
+            async with httpx.AsyncClient() as client:
+                llama_response = await client.post(
+                    groq_api_url,
+                    json=llama_payload,
+                    headers={
+                        "Authorization": f"Bearer {LLAMA_API_KEY}",
+                        "Content-Type": "application/json"
+                    },
+                    timeout=60.0 # Added timeout
+                )
+                llama_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+                llama_result = llama_response.json()
 
+            if llama_result and llama_result.get("choices") and llama_result["choices"][0].get("message") and llama_result["choices"][0]["message"].get("content"):
+                ai_output = llama_result["choices"][0]["message"]["content"]
+            else:
+                ai_output = "Error: Could not get a valid response from Llama AI (Groq)."
+                print(f"Llama API raw response: {llama_result}") # Log raw response for debugging
+
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=503, detail=f"Llama API request failed: {e}. Check network or API key.")
+        except httpx.HTTPStatusError as e:
+            raise HTTPException(status_code=e.response.status_code, detail=f"Llama API returned an error: {e.response.text}")
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"An error occurred with Llama API (simulated): {e}")
+            raise HTTPException(status_code=500, detail=f"An unexpected error occurred with Llama API: {e}")
 
     return {"output": ai_output, "model_used": model_used}
