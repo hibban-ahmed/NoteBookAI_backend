@@ -21,13 +21,6 @@ origins = [
     "https://note-book-ai-v2.vercel.app", # Your actual Vercel frontend URL
 ]
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"], # Allows all methods (GET, POST, PUT, DELETE, etc.)
-    allow_headers=["*"], # Allows all headers
-)
 
 # --- Hardcoded User for Login ---
 # These values will be loaded from environment variables on Railway.
