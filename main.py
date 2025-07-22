@@ -14,13 +14,14 @@ app = FastAPI(
 )
 
 # --- CORS Configuration ---
-# This is crucial for allowing your Vercel frontend to communicate with this backend.
-# I have updated the 'origins' list with your Vercel frontend URL: https://note-book-ai-v2.vercel.app/
-origins = [
-    "http://localhost:3000",  # For local Next.js development
-    "https://note-book-ai-v2.vercel.app", # Your actual Vercel frontend URL
-]
-
+# Allow all origins, methods, and headers
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all HTTP methods
+    allow_headers=["*"],  # Allow all headers
+)
 
 # --- Hardcoded User for Login ---
 # These values will be loaded from environment variables on Railway.
